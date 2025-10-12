@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import { SupabaseConnectionTest } from "@/components/SupabaseConnectionTest";
 
 interface CarouselData {
   id: string;
@@ -31,6 +32,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Debug Component - Remove after fixing connection */}
+      <SupabaseConnectionTest />
+      
       {/* Carousel Section */}
       {carousels.length > 0 && (
         <section className="w-full">
