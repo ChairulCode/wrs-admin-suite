@@ -34,6 +34,8 @@ const Carousels = () => {
     order_position: "0",
     is_active: true,
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     fetchCarousels();
@@ -53,9 +55,35 @@ const Carousels = () => {
     setLoading(true);
 
     try {
+      let imageUrl = formData.image_url;
+
+      // Upload image if there's a new file
+      if (imageFile) {
+        setUploading(true);
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('carousel-images')
+          .upload(filePath, imageFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('carousel-images')
+          .getPublicUrl(filePath);
+
+        imageUrl = publicUrl;
+        setUploading(false);
+      }
+
       const dataToSubmit = {
-        ...formData,
+        title: formData.title,
+        subtitle: formData.subtitle,
+        image_url: imageUrl,
         order_position: parseInt(formData.order_position),
+        is_active: formData.is_active,
       };
 
       if (editingId) {
@@ -82,6 +110,7 @@ const Carousels = () => {
       toast.error(error.message || "Terjadi kesalahan");
     } finally {
       setLoading(false);
+      setUploading(false);
     }
   };
 
@@ -110,6 +139,7 @@ const Carousels = () => {
       order_position: "0",
       is_active: true,
     });
+    setImageFile(null);
     setEditingId(null);
   };
 
@@ -170,14 +200,26 @@ const Carousels = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="image_url">URL Gambar</Label>
+                  <Label htmlFor="image">Upload Gambar</Label>
                   <Input
-                    id="image_url"
-                    value={formData.image_url}
-                    onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                    placeholder="https://..."
-                    required
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setImageFile(file);
+                    }}
+                    required={!editingId && !formData.image_url}
                   />
+                  {formData.image_url && (
+                    <div className="mt-2">
+                      <img 
+                        src={formData.image_url} 
+                        alt="Preview" 
+                        className="h-32 w-auto rounded-md object-cover"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -204,8 +246,8 @@ const Carousels = () => {
                   </Label>
                 </div>
 
-                <Button type="submit" disabled={loading}>
-                  {loading ? "Menyimpan..." : "Simpan"}
+                <Button type="submit" disabled={loading || uploading}>
+                  {uploading ? "Mengupload..." : loading ? "Menyimpan..." : "Simpan"}
                 </Button>
               </form>
             </DialogContent>
