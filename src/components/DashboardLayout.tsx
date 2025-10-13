@@ -30,7 +30,7 @@ import { NavLink } from "react-router-dom";
 import { toast } from "sonner";
 
 interface Profile {
-  role: "admin" | "superadmin";
+  role: "viewer" | "admin" | "superadmin";
   school_level?: "tk" | "sd" | "smp" | "sma";
   full_name: string;
 }
@@ -112,14 +112,27 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
+      // Fetch profile data
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("role, school_level, full_name")
+        .select("school_level, full_name")
         .eq("id", session.user.id)
         .single();
 
-      if (profileData) {
-        setProfile(profileData as Profile);
+      // Fetch user role from user_roles table
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .order("role", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (profileData && roleData) {
+        setProfile({
+          ...profileData,
+          role: roleData.role as "viewer" | "admin" | "superadmin"
+        } as Profile);
       }
     };
 

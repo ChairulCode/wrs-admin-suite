@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { GraduationCap } from "lucide-react";
 
@@ -19,8 +18,6 @@ const Auth = () => {
     email: "",
     password: "",
     fullName: "",
-    role: "admin" as "admin" | "superadmin",
-    schoolLevel: "" as "tk" | "sd" | "smp" | "sma" | "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,8 +45,6 @@ const Auth = () => {
             emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               full_name: formData.fullName,
-              role: formData.role,
-              school_level: formData.schoolLevel || null,
             },
           },
         });
@@ -87,59 +82,16 @@ const Auth = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "register" && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Nama Lengkap</Label>
-                  <Input
-                    id="fullName"
-                    placeholder="Masukkan nama lengkap"
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select
-                    value={formData.role}
-                    onValueChange={(value: "admin" | "superadmin") =>
-                      setFormData({ ...formData, role: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="superadmin">Superadmin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {formData.role === "admin" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="schoolLevel">Tingkat Sekolah</Label>
-                    <Select
-                      value={formData.schoolLevel}
-                      onValueChange={(value: "tk" | "sd" | "smp" | "sma") =>
-                        setFormData({ ...formData, schoolLevel: value })
-                      }
-                      required={formData.role === "admin"}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih tingkat" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="tk">TK</SelectItem>
-                        <SelectItem value="sd">SD</SelectItem>
-                        <SelectItem value="smp">SMP</SelectItem>
-                        <SelectItem value="sma">SMA</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </>
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Nama Lengkap</Label>
+                <Input
+                  id="fullName"
+                  placeholder="Masukkan nama lengkap"
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                  required
+                />
+              </div>
             )}
 
             <div className="space-y-2">
