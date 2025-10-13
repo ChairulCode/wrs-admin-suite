@@ -48,13 +48,21 @@ const SubjectGrades = () => {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, school_level")
+      .select("school_level")
       .eq("id", user.id)
       .single();
 
-    if (profile) {
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .order("role", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (profile && roleData) {
       setSchoolLevel(profile.school_level || "");
-      fetchGrades(profile.role, profile.school_level);
+      fetchGrades(roleData.role, profile.school_level);
     }
   };
 

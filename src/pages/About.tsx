@@ -40,7 +40,7 @@ const About = () => {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, school_level")
+      .select("school_level")
       .eq("id", user.id)
       .single();
 
