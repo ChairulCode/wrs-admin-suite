@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { SupabaseConnectionTest } from "@/components/SupabaseConnectionTest";
+import logoImage from "@/assets/logo.jpeg";
 
 interface CarouselData {
   id: string;
@@ -34,6 +35,17 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Debug Component - Remove after fixing connection */}
       <SupabaseConnectionTest />
+      
+      {/* Header with Logo */}
+      <header className="w-full py-8 bg-gradient-to-b from-primary/5 to-transparent">
+        <div className="container mx-auto flex justify-center">
+          <img 
+            src={logoImage} 
+            alt="WR Supratman Logo" 
+            className="h-32 md:h-40 w-auto object-contain"
+          />
+        </div>
+      </header>
       
       {/* Carousel Section */}
       {carousels.length > 0 && (
