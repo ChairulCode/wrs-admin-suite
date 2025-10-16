@@ -2,16 +2,36 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 
 interface Announcement {
   id: string;
@@ -19,11 +39,15 @@ interface Announcement {
   content: string;
   announcement_date: string;
   is_important: boolean;
+  school_level?: string;
 }
+
+const API_BASE_URL = "https://wr-supratman-server.vercel.app/api/v1";
 
 const Announcements = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [schoolLevel, setSchoolLevel] = useState<string>("");
@@ -39,38 +63,93 @@ const Announcements = () => {
   }, []);
 
   const fetchProfile = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("school_level")
-      .eq("id", user.id)
-      .single();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("school_level")
+        .eq("id", user.id)
+        .single();
 
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .order("role", { ascending: false })
-      .limit(1)
-      .single();
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .order("role", { ascending: false })
+        .limit(1)
+        .single();
 
-    if (profile && roleData) {
-      setSchoolLevel(profile.school_level || "");
-      fetchAnnouncements(roleData.role, profile.school_level);
+      if (profile) {
+        setSchoolLevel(profile.school_level || "");
+        await fetchAnnouncements(roleData?.role || "", profile.school_level);
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      toast.error("Gagal memuat profil pengguna");
     }
   };
 
   const fetchAnnouncements = async (role: string, level: string | null) => {
-    const query = supabase.from("announcements").select("*").order("announcement_date", { ascending: false });
-    
-    if (role === "admin" && level) {
-      query.eq("school_level", level as any);
-    }
+    setFetchLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/berita/`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        mode: "cors",
+      });
 
-    const { data } = await query;
-    if (data) setAnnouncements(data);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Filter berdasarkan role dan level jika diperlukan
+      let filteredData = data;
+      if (role === "admin" && level) {
+        filteredData = data.filter(
+          (item: Announcement) => item.school_level === level
+        );
+      }
+
+      setAnnouncements(filteredData);
+    } catch (error: any) {
+      console.error("Error fetching announcements:", error);
+
+      // Fallback ke Supabase jika API gagal
+      console.log("Mencoba fallback ke Supabase...");
+      try {
+        const query = supabase
+          .from("announcements")
+          .select("*")
+          .order("announcement_date", { ascending: false });
+
+        if (role === "admin" && level) {
+          query.eq("school_level", level as any);
+        }
+
+        const { data: supabaseData, error: supabaseError } = await query;
+
+        if (supabaseError) throw supabaseError;
+
+        if (supabaseData) {
+          setAnnouncements(supabaseData);
+          toast.info("Data dimuat dari database lokal");
+        }
+      } catch (fallbackError) {
+        console.error("Fallback error:", fallbackError);
+        toast.error("Gagal memuat data pengumuman");
+      }
+    } finally {
+      setFetchLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,30 +157,78 @@ const Announcements = () => {
     setLoading(true);
 
     try {
-      if (editingId) {
-        const { error } = await supabase
-          .from("announcements")
-          .update(formData)
-          .eq("id", editingId);
+      const payload = {
+        ...formData,
+        school_level: schoolLevel,
+      };
 
-        if (error) throw error;
-        toast.success("Pengumuman berhasil diupdate!");
+      if (editingId) {
+        // Update existing announcement
+        try {
+          const response = await fetch(`${API_BASE_URL}/berita/${editingId}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            mode: "cors",
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          toast.success("Pengumuman berhasil diupdate!");
+        } catch (apiError) {
+          console.error("API Error, trying Supabase:", apiError);
+
+          // Fallback ke Supabase
+          const { error } = await supabase
+            .from("announcements")
+            .update(formData)
+            .eq("id", editingId);
+
+          if (error) throw error;
+          toast.success("Pengumuman berhasil diupdate!");
+        }
       } else {
-        const { error } = await supabase
-          .from("announcements")
-          .insert({
+        // Create new announcement
+        try {
+          const response = await fetch(`${API_BASE_URL}/berita/add`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            mode: "cors",
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          toast.success("Pengumuman berhasil ditambahkan!");
+        } catch (apiError) {
+          console.error("API Error, trying Supabase:", apiError);
+
+          // Fallback ke Supabase
+          const { error } = await supabase.from("announcements").insert({
             ...formData,
             school_level: schoolLevel as any,
           });
 
-        if (error) throw error;
-        toast.success("Pengumuman berhasil ditambahkan!");
+          if (error) throw error;
+          toast.success("Pengumuman berhasil ditambahkan!");
+        }
       }
 
       setOpen(false);
       resetForm();
       fetchProfile();
     } catch (error: any) {
+      console.error("Error submitting announcement:", error);
       toast.error(error.message || "Terjadi kesalahan");
     } finally {
       setLoading(false);
@@ -112,15 +239,37 @@ const Announcements = () => {
     if (!confirm("Yakin ingin menghapus data ini?")) return;
 
     try {
-      const { error } = await supabase
-        .from("announcements")
-        .delete()
-        .eq("id", id);
+      try {
+        const response = await fetch(`${API_BASE_URL}/berita/${id}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          mode: "cors",
+        });
 
-      if (error) throw error;
-      toast.success("Pengumuman berhasil dihapus!");
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        toast.success("Pengumuman berhasil dihapus!");
+      } catch (apiError) {
+        console.error("API Error, trying Supabase:", apiError);
+
+        // Fallback ke Supabase
+        const { error } = await supabase
+          .from("announcements")
+          .delete()
+          .eq("id", id);
+
+        if (error) throw error;
+        toast.success("Pengumuman berhasil dihapus!");
+      }
+
       fetchProfile();
     } catch (error: any) {
+      console.error("Error deleting announcement:", error);
       toast.error(error.message || "Terjadi kesalahan");
     }
   };
@@ -152,12 +301,17 @@ const Announcements = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Pengumuman</h1>
-            <p className="text-muted-foreground">Kelola data pengumuman sekolah</p>
+            <p className="text-muted-foreground">
+              Kelola data pengumuman sekolah
+            </p>
           </div>
-          <Dialog open={open} onOpenChange={(value) => {
-            setOpen(value);
-            if (!value) resetForm();
-          }}>
+          <Dialog
+            open={open}
+            onOpenChange={(value) => {
+              setOpen(value);
+              if (!value) resetForm();
+            }}
+          >
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
@@ -166,8 +320,12 @@ const Announcements = () => {
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>{editingId ? "Edit Pengumuman" : "Tambah Pengumuman"}</DialogTitle>
-                <DialogDescription>Isi informasi pengumuman dengan lengkap</DialogDescription>
+                <DialogTitle>
+                  {editingId ? "Edit Pengumuman" : "Tambah Pengumuman"}
+                </DialogTitle>
+                <DialogDescription>
+                  Isi informasi pengumuman dengan lengkap
+                </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -175,7 +333,9 @@ const Announcements = () => {
                   <Input
                     id="title"
                     value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -185,7 +345,9 @@ const Announcements = () => {
                   <Textarea
                     id="content"
                     value={formData.content}
-                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, content: e.target.value })
+                    }
                     rows={6}
                     required
                   />
@@ -197,7 +359,12 @@ const Announcements = () => {
                     id="announcement_date"
                     type="date"
                     value={formData.announcement_date}
-                    onChange={(e) => setFormData({ ...formData, announcement_date: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        announcement_date: e.target.value,
+                      })
+                    }
                     required
                   />
                 </div>
@@ -206,8 +373,11 @@ const Announcements = () => {
                   <Checkbox
                     id="is_important"
                     checked={formData.is_important}
-                    onCheckedChange={(checked) => 
-                      setFormData({ ...formData, is_important: checked as boolean })
+                    onCheckedChange={(checked) =>
+                      setFormData({
+                        ...formData,
+                        is_important: checked as boolean,
+                      })
                     }
                   />
                   <Label htmlFor="is_important" className="cursor-pointer">
@@ -216,6 +386,7 @@ const Announcements = () => {
                 </div>
 
                 <Button type="submit" disabled={loading}>
+                  {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   {loading ? "Menyimpan..." : "Simpan"}
                 </Button>
               </form>
@@ -226,49 +397,79 @@ const Announcements = () => {
         <Card className="shadow-md">
           <CardHeader>
             <CardTitle>Daftar Pengumuman</CardTitle>
-            <CardDescription>Total {announcements.length} pengumuman</CardDescription>
+            <CardDescription>
+              Total {announcements.length} pengumuman
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Judul</TableHead>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Konten</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {announcements.map((announcement) => (
-                  <TableRow key={announcement.id}>
-                    <TableCell className="font-medium">{announcement.title}</TableCell>
-                    <TableCell>{new Date(announcement.announcement_date).toLocaleDateString("id-ID")}</TableCell>
-                    <TableCell>
-                      {announcement.is_important && (
-                        <Badge variant="destructive">Penting</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="max-w-md truncate">{announcement.content}</TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => openEditDialog(announcement)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleDelete(announcement.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {announcements.length === 0 && (
+            {fetchLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-2 text-muted-foreground">
+                  Memuat data...
+                </span>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      Belum ada data pengumuman
-                    </TableCell>
+                    <TableHead>Judul</TableHead>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Konten</TableHead>
+                    <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {announcements.map((announcement) => (
+                    <TableRow key={announcement.id}>
+                      <TableCell className="font-medium">
+                        {announcement.title}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(
+                          announcement.announcement_date
+                        ).toLocaleDateString("id-ID")}
+                      </TableCell>
+                      <TableCell>
+                        {announcement.is_important && (
+                          <Badge variant="destructive">Penting</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-md truncate">
+                        {announcement.content}
+                      </TableCell>
+                      <TableCell className="text-right space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEditDialog(announcement)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDelete(announcement.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {announcements.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={5}
+                        className="text-center text-muted-foreground py-8"
+                      >
+                        Belum ada data pengumuman
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
