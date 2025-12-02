@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       about: {
         Row: {
+          contact_email: string | null
+          contact_phone: string | null
           content: string
           created_at: string
           created_by: string | null
@@ -27,6 +29,8 @@ export type Database = {
           vision: string | null
         }
         Insert: {
+          contact_email?: string | null
+          contact_phone?: string | null
           content: string
           created_at?: string
           created_by?: string | null
@@ -38,6 +42,8 @@ export type Database = {
           vision?: string | null
         }
         Update: {
+          contact_email?: string | null
+          contact_phone?: string | null
           content?: string
           created_at?: string
           created_by?: string | null
