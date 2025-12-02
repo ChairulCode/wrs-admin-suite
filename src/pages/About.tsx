@@ -5,17 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Pencil } from "lucide-react";
+import { Pencil, Phone, Mail } from "lucide-react";
 
 interface AboutData {
   id: string;
   school_level: string;
   title: string;
   content: string;
-  vision: string | null;
-  mission: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
 }
 
 const About = () => {
@@ -24,10 +23,8 @@ const About = () => {
   const [aboutData, setAboutData] = useState<AboutData | null>(null);
   const [schoolLevel, setSchoolLevel] = useState<string>("");
   const [formData, setFormData] = useState({
-    title: "",
-    content: "",
-    vision: "",
-    mission: "",
+    contact_phone: "",
+    contact_email: "",
   });
 
   useEffect(() => {
@@ -44,13 +41,23 @@ const About = () => {
       .eq("id", user.id)
       .single();
 
-    if (profile && profile.school_level) {
-      setSchoolLevel(profile.school_level);
-      fetchAboutData(profile.school_level);
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .order("role", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (profile && roleData) {
+      setSchoolLevel(profile.school_level || "");
+      fetchAboutData(profile.school_level || "");
     }
   };
 
   const fetchAboutData = async (level: string) => {
+    if (!level) return;
+    
     const { data } = await supabase
       .from("about")
       .select("*")
@@ -60,10 +67,8 @@ const About = () => {
     if (data) {
       setAboutData(data);
       setFormData({
-        title: data.title,
-        content: data.content,
-        vision: data.vision || "",
-        mission: data.mission || "",
+        contact_phone: data.contact_phone || "",
+        contact_email: data.contact_email || "",
       });
     }
   };
@@ -77,7 +82,8 @@ const About = () => {
         const { error } = await supabase
           .from("about")
           .update({
-            ...formData,
+            contact_phone: formData.contact_phone || null,
+            contact_email: formData.contact_email || null,
             updated_at: new Date().toISOString(),
           })
           .eq("id", aboutData.id);
@@ -87,17 +93,17 @@ const About = () => {
         const { error } = await supabase
           .from("about")
           .insert({
-            title: formData.title,
-            content: formData.content,
-            vision: formData.vision,
-            mission: formData.mission,
+            title: "Profil Sekolah",
+            content: "",
+            contact_phone: formData.contact_phone || null,
+            contact_email: formData.contact_email || null,
             school_level: schoolLevel as any,
           });
 
         if (error) throw error;
       }
 
-      toast.success("Data berhasil disimpan!");
+      toast.success("Data kontak berhasil disimpan!");
       setEditing(false);
       fetchAboutData(schoolLevel);
     } catch (error: any) {
@@ -112,8 +118,8 @@ const About = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Profil Sekolah</h1>
-            <p className="text-muted-foreground">Kelola informasi profil sekolah {schoolLevel.toUpperCase()}</p>
+            <h1 className="text-3xl font-bold tracking-tight">Kontak Sekolah</h1>
+            <p className="text-muted-foreground">Kelola informasi kontak sekolah {schoolLevel.toUpperCase()}</p>
           </div>
           {aboutData && !editing && (
             <Button onClick={() => setEditing(true)}>
@@ -125,53 +131,38 @@ const About = () => {
 
         <Card className="shadow-md">
           <CardHeader>
-            <CardTitle>Informasi Profil</CardTitle>
-            <CardDescription>Isi informasi lengkap tentang sekolah</CardDescription>
+            <CardTitle>Informasi Kontak</CardTitle>
+            <CardDescription>Isi nomor telepon dan email sekolah</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Judul</Label>
+                <Label htmlFor="contact_phone" className="flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  Nomor Telepon
+                </Label>
                 <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  id="contact_phone"
+                  type="tel"
+                  placeholder="Contoh: 021-1234567"
+                  value={formData.contact_phone}
+                  onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
                   disabled={!editing && aboutData !== null}
-                  required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="content">Konten</Label>
-                <Textarea
-                  id="content"
-                  value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                <Label htmlFor="contact_email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Email Sekolah
+                </Label>
+                <Input
+                  id="contact_email"
+                  type="email"
+                  placeholder="Contoh: info@sekolah.sch.id"
+                  value={formData.contact_email}
+                  onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
                   disabled={!editing && aboutData !== null}
-                  rows={6}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="vision">Visi</Label>
-                <Textarea
-                  id="vision"
-                  value={formData.vision}
-                  onChange={(e) => setFormData({ ...formData, vision: e.target.value })}
-                  disabled={!editing && aboutData !== null}
-                  rows={4}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="mission">Misi</Label>
-                <Textarea
-                  id="mission"
-                  value={formData.mission}
-                  onChange={(e) => setFormData({ ...formData, mission: e.target.value })}
-                  disabled={!editing && aboutData !== null}
-                  rows={4}
                 />
               </div>
 
@@ -188,10 +179,8 @@ const About = () => {
                         setEditing(false);
                         if (aboutData) {
                           setFormData({
-                            title: aboutData.title,
-                            content: aboutData.content,
-                            vision: aboutData.vision || "",
-                            mission: aboutData.mission || "",
+                            contact_phone: aboutData.contact_phone || "",
+                            contact_email: aboutData.contact_email || "",
                           });
                         }
                       }}
