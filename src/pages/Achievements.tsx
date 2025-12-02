@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Eye, Calendar, FileText, Image } from "lucide-react";
@@ -170,22 +171,22 @@ const Achievements = () => {
             <h1 className="text-3xl font-bold tracking-tight">Prestasi</h1>
             <p className="text-muted-foreground">Kelola data prestasi sekolah</p>
           </div>
-          <Dialog open={open} onOpenChange={(value) => {
+          <Sheet open={open} onOpenChange={(value) => {
             setOpen(value);
             if (!value) resetForm();
           }}>
-            <DialogTrigger asChild>
+            <SheetTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Tambah Prestasi
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{editingId ? "Edit Prestasi" : "Tambah Prestasi"}</DialogTitle>
-                <DialogDescription>Isi informasi prestasi dengan lengkap</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
+            </SheetTrigger>
+            <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>{editingId ? "Edit Prestasi" : "Tambah Prestasi"}</SheetTitle>
+                <SheetDescription>Isi informasi prestasi dengan lengkap</SheetDescription>
+              </SheetHeader>
+              <form onSubmit={handleSubmit} className="space-y-6 mt-6">
                 <div className="space-y-2">
                   <Label htmlFor="title">Judul Prestasi</Label>
                   <Input
@@ -202,7 +203,7 @@ const Achievements = () => {
                     id="description"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={4}
+                    rows={6}
                     required
                   />
                 </div>
@@ -226,14 +227,31 @@ const Achievements = () => {
                     onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                     placeholder="https://..."
                   />
+                  {formData.image_url && (
+                    <div className="mt-2 rounded-lg overflow-hidden border">
+                      <img 
+                        src={formData.image_url} 
+                        alt="Preview"
+                        className="w-full h-40 object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
 
-                <Button type="submit" disabled={loading}>
-                  {loading ? "Menyimpan..." : "Simpan"}
-                </Button>
+                <div className="flex gap-2 pt-4">
+                  <Button type="submit" disabled={loading} className="flex-1">
+                    {loading ? "Menyimpan..." : "Simpan"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                    Batal
+                  </Button>
+                </div>
               </form>
-            </DialogContent>
-          </Dialog>
+            </SheetContent>
+          </Sheet>
         </div>
 
         {/* Detail Dialog */}
