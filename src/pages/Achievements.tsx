@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, Calendar, FileText, Image } from "lucide-react";
 
 interface Achievement {
   id: string;
@@ -17,12 +17,15 @@ interface Achievement {
   description: string;
   achievement_date: string;
   image_url: string | null;
+  school_level?: string;
 }
 
 const Achievements = () => {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [schoolLevel, setSchoolLevel] = useState<string>("");
   const [formData, setFormData] = useState({
@@ -144,6 +147,21 @@ const Achievements = () => {
     setOpen(true);
   };
 
+  const openDetailDialog = (achievement: Achievement) => {
+    setSelectedAchievement(achievement);
+    setDetailOpen(true);
+  };
+
+  const getSchoolLevelLabel = (level: string) => {
+    const labels: Record<string, string> = {
+      tk: "TK",
+      sd: "SD",
+      smp: "SMP",
+      sma: "SMA",
+    };
+    return labels[level] || level.toUpperCase();
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -218,6 +236,115 @@ const Achievements = () => {
           </Dialog>
         </div>
 
+        {/* Detail Dialog */}
+        <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl">Detail Prestasi</DialogTitle>
+              <DialogDescription>Informasi lengkap prestasi sekolah</DialogDescription>
+            </DialogHeader>
+            {selectedAchievement && (
+              <div className="space-y-6">
+                {/* Image Section */}
+                {selectedAchievement.image_url && (
+                  <div className="rounded-lg overflow-hidden border">
+                    <img 
+                      src={selectedAchievement.image_url} 
+                      alt={selectedAchievement.title}
+                      className="w-full h-64 object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Title */}
+                <div className="space-y-2">
+                  <h3 className="text-xl font-semibold">{selectedAchievement.title}</h3>
+                  {selectedAchievement.school_level && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                      {getSchoolLevelLabel(selectedAchievement.school_level)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Info Grid */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
+                    <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Tanggal Prestasi</p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(selectedAchievement.achievement_date).toLocaleDateString("id-ID", {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+
+                  {selectedAchievement.image_url && (
+                    <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
+                      <Image className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium">Gambar</p>
+                        <a 
+                          href={selectedAchievement.image_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:underline truncate block max-w-[200px]"
+                        >
+                          Lihat gambar
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Description */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-muted-foreground" />
+                    <p className="font-medium">Deskripsi</p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-muted/50">
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                      {selectedAchievement.description}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-4 border-t">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setDetailOpen(false);
+                      openEditDialog(selectedAchievement);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => {
+                      setDetailOpen(false);
+                      handleDelete(selectedAchievement.id);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Hapus
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         <Card className="shadow-md">
           <CardHeader>
             <CardTitle>Daftar Prestasi</CardTitle>
@@ -235,11 +362,18 @@ const Achievements = () => {
               </TableHeader>
               <TableBody>
                 {achievements.map((achievement) => (
-                  <TableRow key={achievement.id}>
+                  <TableRow 
+                    key={achievement.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => openDetailDialog(achievement)}
+                  >
                     <TableCell className="font-medium">{achievement.title}</TableCell>
                     <TableCell>{new Date(achievement.achievement_date).toLocaleDateString("id-ID")}</TableCell>
                     <TableCell className="max-w-md truncate">{achievement.description}</TableCell>
-                    <TableCell className="text-right space-x-2">
+                    <TableCell className="text-right space-x-2" onClick={(e) => e.stopPropagation()}>
+                      <Button size="sm" variant="ghost" onClick={() => openDetailDialog(achievement)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => openEditDialog(achievement)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
